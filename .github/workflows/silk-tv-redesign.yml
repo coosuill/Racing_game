@@ -1,0 +1,260 @@
+name: Silk TV redesign
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  redesign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Save baseline tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git rev-parse silk-baseline-2026-08-07 >/dev/null 2>&1; then
+            git tag silk-baseline-2026-08-07 HEAD^
+            git push origin silk-baseline-2026-08-07
+          fi
+      - name: Apply Silk TV redesign
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('game.html')
+          s = p.read_text()
+
+          replacements = [
+            ('if(!force && now - lastOverlayRenderAt < 180) return;', 'if(!force && now - lastOverlayRenderAt < 300) return;'),
+            ('var size = total <= 4 ? 30 : total <= 8 ? 24 : 17;', 'var size = total <= 4 ? 34 : total <= 8 ? 28 : 21;'),
+          ]
+          for old,new in replacements:
+            if old not in s:
+              raise SystemExit('Missing expected game text: ' + old)
+            s = s.replace(old,new,1)
+
+          old = '''  ctx.beginPath();\n  ctx.arc(0, 0, size/2, 0, Math.PI*2);\n  ctx.stroke();\n\n  if(fallingNow){'''
+          new = '''  ctx.beginPath();\n  ctx.arc(0, 0, size/2, 0, Math.PI*2);\n  ctx.stroke();\n\n  var liveLeader = sortedRaceOrder()[0];\n  if(liveLeader && liveLeader.name === r.name && r.finishTime === null){\n    ctx.strokeStyle = \"#ffd166\";\n    ctx.lineWidth = 3;\n    ctx.beginPath();\n    ctx.arc(0, 0, size/2 + 4, 0, Math.PI*2);\n    ctx.stroke();\n  }\n\n  if(fallingNow){'''
+          if old not in s:
+            raise SystemExit('Leader ring insertion point missing')
+          s = s.replace(old,new,1)
+
+          old = '''  ctx.fillText(r.name, p.x, p.y + size/2 + Math.max(lift, 0) + 4);\n}'''
+          new = '''  ctx.fillText(r.name, p.x, p.y + size/2 + Math.max(lift, 0) + 4);\n\n  if(r.finishTime !== null){\n    var finishers = currentRace.filter(function(x){ return x.finishTime !== null; }).sort(function(a,b){ return a.finishTime-b.finishTime; });\n    var place = finishers.indexOf(r) + 1;\n    if(place > 0){\n      ctx.beginPath();\n      ctx.fillStyle = \"rgba(0,0,0,.82)\";\n      ctx.arc(p.x + size/2 - 2, p.y - size/2 + 2, 9, 0, Math.PI*2);\n      ctx.fill();\n      ctx.fillStyle = \"#ffd166\";\n      ctx.font = \"bold 10px Arial\";\n      ctx.textAlign = \"center\";\n      ctx.textBaseline = \"middle\";\n      ctx.fillText(String(place), p.x + size/2 - 2, p.y - size/2 + 2);\n    }\n  }\n}'''
+          if old not in s:
+            raise SystemExit('Finish badge insertion point missing')
+          s = s.replace(old,new,1)
+          p.write_text(s)
+
+          index = r'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>O'Sullivan Clan Racing</title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;background:#07120c;overflow:hidden}
+#game{display:block;width:100%;height:100vh;border:0;background:#07120c}
+</style>
+</head>
+<body>
+<iframe id="game" src="game.html" title="O'Sullivan Clan Racing"></iframe>
+<script>
+const frame=document.getElementById('game');
+function tuneGame(){
+  try{
+    const doc=frame.contentDocument;
+    const win=frame.contentWindow;
+    if(!doc||!win)return;
+    const ua=(win.navigator.userAgent||'').toLowerCase();
+    const tvMode=/silk|aft|fire tv/.test(ua);
+    doc.documentElement.classList.toggle('tv-mode',tvMode);
+    doc.body.classList.toggle('tv-mode',tvMode);
+
+    let style=doc.getElementById('silk-tv-redesign');
+    if(!style){
+      style=doc.createElement('style');
+      style.id='silk-tv-redesign';
+      style.textContent=`
+        .track-info{width:min(48%,560px)!important;backdrop-filter:none!important}
+        .lap-counter{font-size:13px!important;font-weight:800!important}
+        .tv-flash{position:absolute;inset:0;display:none;place-items:center;z-index:12;pointer-events:none;background:rgba(0,0,0,.22);font-size:clamp(70px,14vw,150px);font-weight:900;color:#ffd166;text-shadow:0 5px 20px #000}
+        .tv-flash.show{display:grid}
+        .tv-result{position:absolute;inset:0;z-index:15;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.78);padding:20px}
+        .tv-result.show{display:flex}
+        .tv-result-card{width:min(82vw,520px);background:linear-gradient(180deg,#203f2c,#102319);border:1px solid rgba(255,255,255,.2);border-radius:18px;padding:18px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+        .tv-result-card h2{margin:0 0 10px;color:#ffd166;font-size:26px}
+        .tv-podium-list{display:grid;gap:7px;margin:10px 0 14px;text-align:left}
+        .tv-podium-row{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.06);font-weight:800}
+        .tv-podium-place{color:#ffd166;text-align:center}
+        .tv-result-actions{display:flex;gap:10px;justify-content:center}
+        .tv-result-actions button{min-width:150px;min-height:48px;font-size:15px}
+        @media(max-width:760px){.track-info{width:66%!important}}
+        .tv-mode{overflow:hidden!important}
+        .tv-mode body{padding:4px!important}
+        .tv-mode .app{gap:5px!important;height:100vh!important}
+        .tv-mode .header{padding:7px 10px!important}
+        .tv-mode h1{font-size:24px!important}
+        .tv-mode .controls{padding:8px!important;gap:8px!important;align-items:center!important}
+        .tv-mode button,.tv-mode select{min-height:44px!important;font-size:14px!important}
+        .tv-mode button:focus,.tv-mode select:focus{outline:3px solid #ffd166!important;outline-offset:2px!important}
+        .tv-mode .mode-buttons{display:grid!important;grid-template-columns:repeat(6,minmax(105px,1fr))!important;width:100%!important}
+        .tv-mode .action-buttons{width:100%!important;display:flex!important;align-items:end!important}
+        .tv-mode .action-buttons #goBtn{min-width:180px!important;min-height:52px!important;font-size:17px!important}
+        .tv-mode .track-shell{aspect-ratio:auto!important;height:calc(100vh - 190px)!important;min-height:420px!important;max-height:none!important}
+        .tv-mode .track-info{left:12px!important;top:50px!important;transform:none!important;width:min(31vw,360px)!important;max-height:62%!important;padding:7px 9px!important;background:rgba(3,12,7,.76)!important}
+        .tv-mode .track-info-title{font-size:11px!important;margin-bottom:4px!important}
+        .tv-mode .track-info-grid{grid-template-columns:1fr!important;gap:4px!important}
+        .tv-mode .track-info-section{padding:4px 6px!important}
+        .tv-mode .track-live-list{font-size:11px!important}
+        .tv-mode .track-live-row:nth-child(n+6){display:none!important}
+        .tv-mode .track-live-row{grid-template-columns:20px minmax(72px,1fr) auto auto auto!important}
+        .tv-mode .commentary{width:auto!important;max-width:440px!important;bottom:14px!important;padding:8px 14px!important;font-size:14px!important;opacity:0!important;transition:opacity .2s ease!important;pointer-events:none!important}
+        .tv-mode .commentary.tv-toast{opacity:1!important}
+        .tv-mode .lap-counter{right:14px!important;top:12px!important;font-size:16px!important;padding:7px 10px!important}
+        .tv-mode .celebration{display:none!important}
+        .tv-mode .side{display:none!important}
+        .tv-mode.race-running .header,.tv-mode.race-running .controls{display:none!important}
+        .tv-mode.race-running .track-shell{height:100vh!important;border-radius:0!important;border:0!important}
+        .tv-mode.race-running body{padding:0!important}
+        .tv-mode.race-running .track-info{top:52px!important}
+        .tv-mode.race-finished .header,.tv-mode.race-finished .controls{display:none!important}
+        .tv-mode.race-finished .track-shell{height:100vh!important;border-radius:0!important;border:0!important}
+        .tv-mode.race-finished body{padding:0!important}
+        .tv-mode .confetti{display:none!important}
+      `;
+      doc.head.appendChild(style);
+    }
+
+    const shell=doc.getElementById('trackShell');
+    if(!shell)return;
+    let flash=doc.getElementById('tvRaceFlash');
+    if(!flash){flash=doc.createElement('div');flash.id='tvRaceFlash';flash.className='tv-flash';shell.appendChild(flash)}
+    let result=doc.getElementById('tvResult');
+    if(!result){
+      result=doc.createElement('div');result.id='tvResult';result.className='tv-result';
+      result.innerHTML='<div class="tv-result-card"><h2 id="tvResultTitle">Race Result</h2><div class="tv-podium-list" id="tvPodiumList"></div><div class="tv-result-actions"><button class="primary" id="tvAgain">Race Again</button><button id="tvMenu">Menu</button></div></div>';
+      shell.appendChild(result);
+    }
+
+    const status=doc.getElementById('status');
+    const go=doc.getElementById('goBtn');
+    const lap=doc.getElementById('lapCounter');
+    const commentary=doc.getElementById('commentary');
+    let countdown=false,bypass=false,finalLapShown=false,lastStatus='';
+
+    function showFlash(text,ms){
+      flash.textContent=text;flash.classList.add('show');
+      return new Promise(resolve=>setTimeout(()=>{flash.classList.remove('show');resolve()},ms));
+    }
+    async function runCountdown(){
+      countdown=true;
+      for(const x of ['3','2','1','GO!']) await showFlash(x,x==='GO!'?500:650);
+      bypass=true;go.click();bypass=false;countdown=false;
+    }
+    if(tvMode && !go.dataset.tvCountdown){
+      go.dataset.tvCountdown='1';
+      go.addEventListener('click',e=>{
+        if(bypass||countdown||go.disabled)return;
+        e.preventDefault();e.stopImmediatePropagation();runCountdown();
+      },true);
+    }
+
+    function setRaceClass(){
+      const t=(status&&status.textContent||'').toLowerCase();
+      const running=t.includes('running');
+      const finished=t.includes('finished')||t.includes('complete')||t.includes('champion')||t.includes('match complete')||t.includes('heat complete');
+      doc.documentElement.classList.toggle('race-running',tvMode&&running);
+      doc.body.classList.toggle('race-running',tvMode&&running);
+      doc.documentElement.classList.toggle('race-finished',tvMode&&finished);
+      doc.body.classList.toggle('race-finished',tvMode&&finished);
+      if(running && lastStatus!==t){finalLapShown=false;result.classList.remove('show')}
+      if(finished && lastStatus!==t) showResult();
+      lastStatus=t;
+    }
+
+    function topNames(){
+      return Array.from(doc.querySelectorAll('.track-live-row .runner-name')).slice(0,3).map(x=>x.textContent.trim()).filter(Boolean);
+    }
+    function showResult(){
+      if(!tvMode)return;
+      const names=topNames();
+      if(!names.length)return;
+      const title=doc.getElementById('tvResultTitle');
+      const list=doc.getElementById('tvPodiumList');
+      title.textContent='Race Result';
+      list.innerHTML=names.map((n,i)=>'<div class="tv-podium-row"><span class="tv-podium-place">'+(i+1)+'</span><span>'+n+'</span></div>').join('');
+      const again=doc.getElementById('tvAgain');
+      again.disabled=!!go.disabled;
+      result.classList.add('show');
+    }
+    doc.getElementById('tvAgain').onclick=()=>{result.classList.remove('show');if(!go.disabled)go.click()};
+    doc.getElementById('tvMenu').onclick=()=>{result.classList.remove('show');doc.documentElement.classList.remove('race-finished');doc.body.classList.remove('race-finished')};
+
+    let toastTimer=0;
+    if(commentary){
+      new MutationObserver(()=>{
+        if(!tvMode)return;
+        commentary.classList.add('tv-toast');
+        clearTimeout(toastTimer);toastTimer=setTimeout(()=>commentary.classList.remove('tv-toast'),2100);
+      }).observe(commentary,{childList:true,characterData:true,subtree:true});
+    }
+
+    if(lap){
+      new MutationObserver(()=>{
+        if(!tvMode||finalLapShown)return;
+        const m=lap.textContent.match(/(\d+)\s*\/\s*(\d+)/);
+        const running=(status&&status.textContent||'').toLowerCase().includes('running');
+        if(m&&running){
+          const done=Number(m[1]),total=Number(m[2]);
+          if(total>0 && done>=total-1){finalLapShown=true;showFlash('FINAL LAP',900)}
+        }
+      }).observe(lap,{childList:true,characterData:true,subtree:true});
+    }
+
+    if(status)new MutationObserver(setRaceClass).observe(status,{childList:true,characterData:true,subtree:true});
+    setRaceClass();
+
+    if(tvMode && !doc.body.dataset.remoteNav){
+      doc.body.dataset.remoteNav='1';
+      doc.addEventListener('keydown',e=>{
+        if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
+        if(doc.documentElement.classList.contains('race-running'))return;
+        const els=Array.from(doc.querySelectorAll('button:not([disabled]),select:not([disabled])')).filter(el=>el.offsetParent!==null);
+        if(!els.length)return;
+        const i=Math.max(0,els.indexOf(doc.activeElement));
+        const dir=(e.key==='ArrowLeft'||e.key==='ArrowUp')?-1:1;
+        els[(i+dir+els.length)%els.length].focus();e.preventDefault();
+      });
+    }
+  }catch(e){}
+}
+frame.addEventListener('load',tuneGame);
+</script>
+</body>
+</html>
+'''
+          Path('index.html').write_text(index)
+          PY
+      - name: Check JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re, pathlib, subprocess, tempfile
+          s=pathlib.Path('game.html').read_text()
+          js=re.findall(r'<script>(.*?)</script>',s,re.S)[-1]
+          p=tempfile.NamedTemporaryFile(delete=False,suffix='.js',mode='w');p.write(js);p.close()
+          subprocess.check_call(['node','--check',p.name])
+          s=pathlib.Path('index.html').read_text()
+          js=re.findall(r'<script>(.*?)</script>',s,re.S)[-1]
+          p=tempfile.NamedTemporaryFile(delete=False,suffix='.js',mode='w');p.write(js);p.close()
+          subprocess.check_call(['node','--check',p.name])
+          PY
+      - name: Commit redesign
+        run: |
+          rm -f .github/workflows/silk-tv-redesign.yml
+          git add game.html index.html .github/workflows/silk-tv-redesign.yml
+          git commit -m "Redesign racing game for Silk TV"
+          git push origin main
