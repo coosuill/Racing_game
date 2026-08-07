@@ -5,50 +5,97 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>O'Sullivan Clan Racing</title>
 <style>
-html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overflow-x:hidden}
-#game{display:block;width:100%;border:0;min-height:100vh}
+html,body{margin:0;padding:0;width:100%;height:100%;background:#07120c;overflow:hidden}
+#game{display:block;width:100%;height:100vh;border:0;background:#07120c}
 </style>
 </head>
 <body>
 <iframe id="game" src="game.html" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
-function tuneGame(){
+frame.addEventListener('load',()=>{
   try{
-    const doc=frame.contentDocument;
-    if(!doc)return;
-    let style=doc.getElementById('chatgpt-racing-layout-tweak');
-    if(!style){
-      style=doc.createElement('style');
-      style.id='chatgpt-racing-layout-tweak';
-      style.textContent=`
-        .track-info{width:min(52%,620px)!important;}
-        @media(max-width:760px){.track-info{width:72%!important;}}
-      `;
-      doc.head.appendChild(style);
-    }
-    const resize=()=>{
-      const h=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight);
-      frame.style.height=h+'px';
-    };
-    resize();
-    if(window.ResizeObserver){
-      const ro=new ResizeObserver(resize);
-      ro.observe(doc.documentElement);
-      if(doc.body)ro.observe(doc.body);
-    }
-    setTimeout(resize,250);
-    setTimeout(resize,1000);
-  }catch(e){
-    frame.style.height='100vh';
-  }
-}
-frame.addEventListener('load',tuneGame);
-window.addEventListener('resize',()=>{
-  try{
-    const doc=frame.contentDocument;
-    if(doc){frame.style.height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight)+'px';}
-  }catch(e){}
+    const doc=frame.contentDocument, win=frame.contentWindow;
+    if(!doc||!win)return;
+    const tv=/silk|aft|fire tv/i.test(win.navigator.userAgent||'');
+    if(!tv)return;
+    doc.documentElement.classList.add('tv-mode');
+    doc.body.classList.add('tv-mode');
+
+    const style=doc.createElement('style');
+    style.id='silk-tv-redesign';
+    style.textContent=`
+      html.tv-mode,html.tv-mode body{overflow:hidden!important;height:100%!important}
+      .tv-mode body{padding:4px!important}
+      .tv-mode .app{gap:5px!important;height:100vh!important}
+      .tv-mode .header{padding:7px 10px!important}
+      .tv-mode h1{font-size:24px!important}
+      .tv-mode .controls{padding:8px!important;gap:8px!important}
+      .tv-mode button,.tv-mode select{min-height:44px!important;font-size:14px!important}
+      .tv-mode button:focus,.tv-mode select:focus{outline:3px solid #ffd166!important;outline-offset:2px!important}
+      .tv-mode .mode-buttons{display:grid!important;grid-template-columns:repeat(6,minmax(105px,1fr))!important;width:100%!important}
+      .tv-mode .action-buttons{width:100%!important;display:flex!important;align-items:end!important}
+      .tv-mode #goBtn{min-width:180px!important;min-height:52px!important;font-size:17px!important}
+      .tv-mode .track-shell{aspect-ratio:auto!important;height:calc(100vh - 190px)!important;min-height:420px!important;max-height:none!important}
+      .tv-mode .side{display:none!important}
+      .tv-mode .track-info{left:12px!important;top:52px!important;transform:none!important;width:min(31vw,360px)!important;max-height:62%!important;padding:7px 9px!important;background:rgba(3,12,7,.76)!important;backdrop-filter:none!important}
+      .tv-mode .track-info-title{font-size:11px!important;margin-bottom:4px!important}
+      .tv-mode .track-info-grid{grid-template-columns:1fr!important;gap:4px!important}
+      .tv-mode .track-info-section{padding:4px 6px!important}
+      .tv-mode .track-live-list{font-size:11px!important}
+      .tv-mode .track-live-row:nth-child(n+6){display:none!important}
+      .tv-mode .track-live-row{grid-template-columns:20px minmax(72px,1fr) auto auto auto!important}
+      .tv-mode .lap-counter{right:14px!important;top:12px!important;font-size:16px!important;font-weight:800!important;padding:7px 10px!important}
+      .tv-mode .commentary{width:auto!important;max-width:440px!important;bottom:14px!important;padding:8px 14px!important;font-size:14px!important;opacity:0!important;transition:opacity .2s ease!important;pointer-events:none!important}
+      .tv-mode .commentary.tv-toast{opacity:1!important}
+      .tv-mode .celebration{display:none!important}
+      .tv-mode .confetti{display:none!important}
+      .tv-mode.race-running .header,.tv-mode.race-running .controls{display:none!important}
+      .tv-mode.race-running body{padding:0!important}
+      .tv-mode.race-running .track-shell{height:100vh!important;border-radius:0!important;border:0!important}
+      .tv-mode.race-finished .header,.tv-mode.race-finished .controls{display:none!important}
+      .tv-mode.race-finished body{padding:0!important}
+      .tv-mode.race-finished .track-shell{height:100vh!important;border-radius:0!important;border:0!important}
+      .tv-flash{position:absolute;inset:0;display:none;place-items:center;z-index:12;pointer-events:none;background:rgba(0,0,0,.22);font-size:clamp(70px,14vw,150px);font-weight:900;color:#ffd166;text-shadow:0 5px 20px #000}
+      .tv-flash.show{display:grid}
+      .tv-result{position:absolute;inset:0;z-index:15;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.78);padding:20px}
+      .tv-result.show{display:flex}
+      .tv-result-card{width:min(82vw,520px);background:linear-gradient(180deg,#203f2c,#102319);border:1px solid rgba(255,255,255,.2);border-radius:18px;padding:18px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+      .tv-result-card h2{margin:0 0 10px;color:#ffd166;font-size:26px}
+      .tv-podium-list{display:grid;gap:7px;margin:10px 0 14px;text-align:left}
+      .tv-podium-row{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.06);font-weight:800}
+      .tv-podium-place{color:#ffd166;text-align:center}
+      .tv-result-actions{display:flex;gap:10px;justify-content:center}
+      .tv-result-actions button{min-width:150px!important;min-height:48px!important}
+    `;
+    doc.head.appendChild(style);
+
+    const shell=doc.getElementById('trackShell'), status=doc.getElementById('status'), go=doc.getElementById('goBtn'), lap=doc.getElementById('lapCounter'), commentary=doc.getElementById('commentary');
+    if(!shell||!status||!go)return;
+    const flash=doc.createElement('div'); flash.id='tvRaceFlash'; flash.className='tv-flash'; shell.appendChild(flash);
+    const result=doc.createElement('div'); result.id='tvResult'; result.className='tv-result';
+    result.innerHTML='<div class="tv-result-card"><h2>Race Result</h2><div class="tv-podium-list" id="tvPodiumList"></div><div class="tv-result-actions"><button class="primary" id="tvAgain">Race Again</button><button id="tvMenu">Menu</button></div></div>';
+    shell.appendChild(result);
+
+    let countdown=false,bypass=false,finalShown=false,lastState='',toastTimer=0;
+    const showFlash=(txt,ms)=>new Promise(resolve=>{flash.textContent=txt;flash.classList.add('show');setTimeout(()=>{flash.classList.remove('show');resolve()},ms)});
+    async function countdownStart(){countdown=true;for(const x of ['3','2','1','GO!'])await showFlash(x,x==='GO!'?500:650);bypass=true;go.click();bypass=false;countdown=false}
+    go.addEventListener('click',e=>{if(bypass||countdown||go.disabled)return;e.preventDefault();e.stopImmediatePropagation();countdownStart()},true);
+
+    function names(){return Array.from(doc.querySelectorAll('.track-live-row .runner-name')).slice(0,3).map(x=>x.textContent.trim()).filter(Boolean)}
+    function showResult(){const ns=names();if(!ns.length)return;doc.getElementById('tvPodiumList').innerHTML=ns.map((n,i)=>'<div class="tv-podium-row"><span class="tv-podium-place">'+(i+1)+'</span><span>'+n+'</span></div>').join('');doc.getElementById('tvAgain').disabled=!!go.disabled;result.classList.add('show')}
+    function syncState(){const t=status.textContent.toLowerCase();const running=t.includes('running');const done=t.includes('finished')||t.includes('complete')||t.includes('champion');doc.documentElement.classList.toggle('race-running',running);doc.body.classList.toggle('race-running',running);doc.documentElement.classList.toggle('race-finished',done);doc.body.classList.toggle('race-finished',done);if(running&&t!==lastState){finalShown=false;result.classList.remove('show')}if(done&&t!==lastState)showResult();lastState=t}
+    new MutationObserver(syncState).observe(status,{childList:true,characterData:true,subtree:true});
+    syncState();
+
+    doc.getElementById('tvAgain').onclick=()=>{result.classList.remove('show');if(!go.disabled)go.click()};
+    doc.getElementById('tvMenu').onclick=()=>{result.classList.remove('show');doc.documentElement.classList.remove('race-finished');doc.body.classList.remove('race-finished')};
+
+    if(commentary)new MutationObserver(()=>{commentary.classList.add('tv-toast');clearTimeout(toastTimer);toastTimer=setTimeout(()=>commentary.classList.remove('tv-toast'),2100)}).observe(commentary,{childList:true,characterData:true,subtree:true});
+    if(lap)new MutationObserver(()=>{if(finalShown)return;const m=lap.textContent.match(/(\d+)\s*\/\s*(\d+)/);if(m&&status.textContent.toLowerCase().includes('running')){const done=Number(m[1]),total=Number(m[2]);if(total>0&&done>=total-1){finalShown=true;showFlash('FINAL LAP',900)}}}).observe(lap,{childList:true,characterData:true,subtree:true});
+
+    doc.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)||doc.documentElement.classList.contains('race-running'))return;const els=Array.from(doc.querySelectorAll('button:not([disabled]),select:not([disabled])')).filter(el=>el.offsetParent!==null);if(!els.length)return;const i=Math.max(0,els.indexOf(doc.activeElement));const d=(e.key==='ArrowLeft'||e.key==='ArrowUp')?-1:1;els[(i+d+els.length)%els.length].focus();e.preventDefault()});
+  }catch(e){console.error(e)}
 });
 </script>
 </body>
