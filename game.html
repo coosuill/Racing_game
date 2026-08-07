@@ -1854,7 +1854,7 @@ function raceVisualPoint(r,idx,total,g){
   if(r.progress <= 0.00001 || r.finishTime !== null) return lineupPoint(idx,total,g);
 
   var center=(total-1)/2;
-  var visualProgress=r.progress + (idx-center)*0.0018;
+  var visualProgress=r.progress;
   var p=pointOnPill(visualProgress,0,1,g);
   var before=pointOnPill(visualProgress-0.002,0,1,g);
   var after=pointOnPill(visualProgress+0.002,0,1,g);
