@@ -803,7 +803,7 @@ function trackListHtml(title, rows, cls){
 
 function renderTrackOverlay(force){
   var now = performance.now();
-  if(!force && now - lastOverlayRenderAt < 300) return;
+  if(!force && now - lastOverlayRenderAt < 180) return;
   lastOverlayRenderAt = now;
 
   if(mode === "records"){
@@ -1869,7 +1869,7 @@ function raceVisualPoint(r,idx,total,g){
 
 function drawFaceToken(r, idx, total, g){
   var p = raceVisualPoint(r, idx, total, g);
-  var size = total <= 4 ? 34 : total <= 8 ? 28 : 21;
+  var size = total <= 4 ? 30 : total <= 8 ? 24 : 17;
 
   var angle = 0;
   var lift = 0;
@@ -1916,15 +1916,6 @@ function drawFaceToken(r, idx, total, g){
   ctx.arc(0, 0, size/2, 0, Math.PI*2);
   ctx.stroke();
 
-  var liveLeader = sortedRaceOrder()[0];
-  if(liveLeader && liveLeader.name === r.name && r.finishTime === null){
-    ctx.strokeStyle = "#ffd166";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(0, 0, size/2 + 4, 0, Math.PI*2);
-    ctx.stroke();
-  }
-
   if(fallingNow){
     ctx.strokeStyle = "#ffb3b3";
     ctx.lineWidth = 2;
@@ -1944,22 +1935,6 @@ function drawFaceToken(r, idx, total, g){
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(r.name, p.x, p.y + size/2 + Math.max(lift, 0) + 4);
-
-  if(r.finishTime !== null){
-    var finishers = currentRace.filter(function(x){ return x.finishTime !== null; }).sort(function(a,b){ return a.finishTime-b.finishTime; });
-    var place = finishers.indexOf(r) + 1;
-    if(place > 0){
-      ctx.beginPath();
-      ctx.fillStyle = "rgba(0,0,0,.82)";
-      ctx.arc(p.x + size/2 - 2, p.y - size/2 + 2, 9, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = "#ffd166";
-      ctx.font = "bold 10px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(place), p.x + size/2 - 2, p.y - size/2 + 2);
-    }
-  }
 }
 
 function drawHurdleMarker(progress, g){
