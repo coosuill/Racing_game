@@ -70,14 +70,24 @@ function tuneGame(){
         const innerHeight=Math.max(1,g.innerBottom-g.innerTop);
         const innerRadius=Math.max(1,g.innerRadius||innerHeight/2);
 
-        // Use a rectangle that is mathematically contained inside the rounded
-        // infield. This prevents the standings panel ever covering the racing lane.
-        const safeHeight=Math.max(54,innerHeight*0.60);
-        const halfHeight=Math.min(safeHeight/2,innerRadius-1);
-        const curveInset=innerRadius-Math.sqrt(Math.max(0,innerRadius*innerRadius-halfHeight*halfHeight));
-        const edgePad=Math.max(5,Math.min(10,innerHeight*0.035));
-        const safeLeft=g.innerLeft+curveInset+edgePad;
-        const safeRight=g.innerRight-curveInset-edgePad;
+        // Start at the true inner edge of the racing track, then inset again.
+        // This creates a smaller "safe infield" so the standings sit clearly
+        // inside the central green rather than touching the inner racing lane.
+        const deepInset=Math.max(18,Math.min(36,innerHeight*0.11));
+        const coreLeft=g.innerLeft+deepInset;
+        const coreRight=g.innerRight-deepInset;
+        const coreTop=g.innerTop+deepInset;
+        const coreBottom=g.innerBottom-deepInset;
+        const coreHeight=Math.max(1,coreBottom-coreTop);
+        const coreRadius=Math.max(1,innerRadius-deepInset);
+
+        // Fit the rectangular panel fully inside that second, inset rounded area.
+        const safeHeight=Math.max(54,coreHeight*0.86);
+        const halfHeight=Math.min(safeHeight/2,coreRadius-1);
+        const curveInset=coreRadius-Math.sqrt(Math.max(0,coreRadius*coreRadius-halfHeight*halfHeight));
+        const edgePad=Math.max(4,Math.min(8,coreHeight*0.03));
+        const safeLeft=coreLeft+curveInset+edgePad;
+        const safeRight=coreRight-curveInset-edgePad;
         const safeWidth=Math.max(1,safeRight-safeLeft);
 
         info.style.left=g.cx+'px';
