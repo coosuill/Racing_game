@@ -13,41 +13,118 @@ html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overf
 <iframe id="game" src="game.html" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
+
 function tuneGame(){
   try{
+    const win=frame.contentWindow;
     const doc=frame.contentDocument;
     if(!doc)return;
+
     let style=doc.getElementById('chatgpt-racing-layout-tweak');
     if(!style){
       style=doc.createElement('style');
       style.id='chatgpt-racing-layout-tweak';
       style.textContent=`
-        .track-info{width:min(52%,620px)!important;}
-        @media(max-width:760px){.track-info{width:72%!important;}}
+        .banner{display:none!important;}
+        .lap-counter{
+          left:10px!important;
+          right:auto!important;
+          top:10px!important;
+          z-index:4!important;
+          padding:7px 10px!important;
+          border-radius:999px!important;
+          background:rgba(0,0,0,.62)!important;
+          color:#fff!important;
+          font-size:13px!important;
+          font-weight:bold!important;
+          pointer-events:none!important;
+        }
+        .track-info{
+          position:absolute!important;
+          transform:translate(-50%,-50%)!important;
+          max-width:none!important;
+          margin:0!important;
+          overflow:hidden!important;
+        }
+        @media(max-width:760px){
+          .track-info-grid{grid-template-columns:1fr!important;gap:4px!important;}
+          .track-info{padding:6px!important;}
+          .track-info-section{padding:4px 5px!important;}
+          .track-live-list,.track-score-list,.track-result-list{font-size:9px!important;}
+          .track-live-row{grid-template-columns:18px minmax(45px,1fr) auto auto auto!important;gap:2px!important;}
+          .track-live-row .ability,.track-live-row .race-state,.track-live-row .gap-cell{font-size:8px!important;}
+        }
       `;
       doc.head.appendChild(style);
     }
+
+    const pinTrackOverlay=()=>{
+      try{
+        const info=doc.getElementById('trackInfo');
+        const shell=doc.getElementById('trackShell');
+        if(!info||!shell||typeof win.geometry!=='function')return;
+
+        const g=win.geometry();
+        if(!g)return;
+
+        const innerHeight=Math.max(1,g.innerBottom-g.innerTop);
+        const innerRadius=Math.max(1,g.innerRadius||innerHeight/2);
+
+        // Use a rectangle that is mathematically contained inside the rounded
+        // infield. This prevents the standings panel ever covering the racing lane.
+        const safeHeight=Math.max(54,innerHeight*0.60);
+        const halfHeight=Math.min(safeHeight/2,innerRadius-1);
+        const curveInset=innerRadius-Math.sqrt(Math.max(0,innerRadius*innerRadius-halfHeight*halfHeight));
+        const edgePad=Math.max(5,Math.min(10,innerHeight*0.035));
+        const safeLeft=g.innerLeft+curveInset+edgePad;
+        const safeRight=g.innerRight-curveInset-edgePad;
+        const safeWidth=Math.max(1,safeRight-safeLeft);
+
+        info.style.left=g.cx+'px';
+        info.style.top=g.cy+'px';
+        info.style.width=safeWidth+'px';
+        info.style.maxHeight=safeHeight+'px';
+      }catch(e){}
+    };
+
     const resize=()=>{
       const h=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight);
       frame.style.height=h+'px';
+      requestAnimationFrame(pinTrackOverlay);
     };
+
     resize();
+    pinTrackOverlay();
+
     if(window.ResizeObserver){
       const ro=new ResizeObserver(resize);
       ro.observe(doc.documentElement);
       if(doc.body)ro.observe(doc.body);
+      const shell=doc.getElementById('trackShell');
+      if(shell)ro.observe(shell);
     }
-    setTimeout(resize,250);
-    setTimeout(resize,1000);
+
+    const info=doc.getElementById('trackInfo');
+    if(info&&window.MutationObserver){
+      const mo=new MutationObserver(()=>requestAnimationFrame(pinTrackOverlay));
+      mo.observe(info,{childList:true,subtree:true,characterData:true});
+    }
+
+    setTimeout(()=>{resize();pinTrackOverlay();},250);
+    setTimeout(()=>{resize();pinTrackOverlay();},1000);
   }catch(e){
     frame.style.height='100vh';
   }
 }
+
 frame.addEventListener('load',tuneGame);
 window.addEventListener('resize',()=>{
   try{
     const doc=frame.contentDocument;
-    if(doc){frame.style.height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight)+'px';}
+    if(doc){
+      frame.style.height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight)+'px';
+      setTimeout(tuneGame,0);
+    }
   }catch(e){}
 });
 </script>
