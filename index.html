@@ -3,16 +3,171 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>O'Sullivan Clan Racing</title>
-<style>html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overflow-x:hidden}#game{display:block;width:100%;border:0;min-height:100vh}</style>
+<style>
+html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overflow-x:hidden}
+#game{display:block;width:100%;border:0;min-height:100vh}
+</style>
 </head>
 <body>
-<iframe id="game" src="game.html" title="O'Sullivan Clan Racing"></iframe>
+<iframe id="game" src="game.html?v=20260808-0929-infieldclip" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
-function sizeFrame(){try{const doc=frame.contentDocument;if(!doc)return;frame.style.height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight)+'px';}catch(e){frame.style.height='100vh';}}
-frame.addEventListener('load',()=>{sizeFrame();setTimeout(sizeFrame,250);setTimeout(sizeFrame,1000);try{const doc=frame.contentDocument;if(window.ResizeObserver&&doc){const ro=new ResizeObserver(sizeFrame);ro.observe(doc.documentElement);if(doc.body)ro.observe(doc.body);}}catch(e){}});
-window.addEventListener('resize',sizeFrame);
+
+function sizeFrame(){
+  try{
+    const doc=frame.contentDocument;
+    if(!doc)return;
+    frame.style.height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight)+'px';
+  }catch(e){frame.style.height='100vh';}
+}
+
+function installInfieldHud(){
+  try{
+    const win=frame.contentWindow;
+    const doc=frame.contentDocument;
+    if(!doc||!win)return;
+
+    let style=doc.getElementById('outer-infield-hud-fix');
+    if(!style){
+      style=doc.createElement('style');
+      style.id='outer-infield-hud-fix';
+      style.textContent=`
+        .banner{display:none!important;}
+        .lap-counter{
+          left:10px!important;right:auto!important;top:10px!important;z-index:7!important;
+          padding:7px 10px!important;border-radius:999px!important;
+          background:rgba(0,0,0,.62)!important;color:#fff!important;
+          font-size:13px!important;font-weight:bold!important;pointer-events:none!important;
+        }
+        #trackInfo{display:none!important;}
+        #safeInfieldHudZone{
+          position:absolute!important;overflow:hidden!important;pointer-events:none!important;z-index:5!important;
+        }
+        #safeTrackInfo{
+          position:absolute!important;left:50%!important;top:50%!important;
+          transform:translate(-50%,-50%)!important;
+          width:72%!important;max-width:620px!important;max-height:68%!important;
+          margin:0!important;overflow:hidden!important;box-sizing:border-box!important;
+        }
+        #latestChangeNote{
+          display:inline-block!important;margin-left:7px!important;font-size:9px!important;
+          line-height:1.1!important;font-weight:normal!important;letter-spacing:0!important;
+          color:var(--muted)!important;opacity:.72!important;vertical-align:middle!important;white-space:nowrap!important;
+        }
+        @media(max-width:760px){
+          #safeTrackInfo{width:78%!important;max-height:72%!important;padding:5px!important;}
+          #safeTrackInfo .track-info-grid{grid-template-columns:1fr!important;gap:3px!important;}
+          #safeTrackInfo .track-info-section{padding:3px 4px!important;}
+          #safeTrackInfo .track-live-list,#safeTrackInfo .track-score-list,#safeTrackInfo .track-result-list{font-size:8px!important;}
+          #safeTrackInfo .track-live-row{grid-template-columns:17px minmax(38px,1fr) auto auto auto!important;gap:2px!important;}
+          #safeTrackInfo .track-live-row .ability,#safeTrackInfo .track-live-row .race-state,#safeTrackInfo .track-live-row .gap-cell{font-size:7px!important;}
+          #latestChangeNote{font-size:8px!important;white-space:normal!important;}
+        }
+      `;
+      doc.head.appendChild(style);
+    }
+
+    const heading=doc.querySelector('h1');
+    if(heading){
+      let note=doc.getElementById('latestChangeNote');
+      if(!note){
+        note=doc.createElement('span');
+        note.id='latestChangeNote';
+        heading.appendChild(note);
+      }
+      note.textContent='Latest: HUD clipped inside true infield · lap top-left';
+    }
+
+    const shell=doc.getElementById('trackShell');
+    const original=doc.getElementById('trackInfo');
+    if(!shell||!original||typeof win.geometry!=='function')return;
+
+    let zone=doc.getElementById('safeInfieldHudZone');
+    if(!zone){
+      zone=doc.createElement('div');
+      zone.id='safeInfieldHudZone';
+      shell.appendChild(zone);
+    }
+
+    let safe=doc.getElementById('safeTrackInfo');
+    if(!safe){
+      safe=doc.createElement('div');
+      safe.id='safeTrackInfo';
+      safe.className='track-info';
+      zone.appendChild(safe);
+    }
+
+    const copyOverlay=()=>{
+      safe.innerHTML=original.innerHTML;
+      safe.style.display=original.innerHTML.trim()?'block':'none';
+    };
+
+    const positionZone=()=>{
+      try{
+        const g=win.geometry();
+        if(!g)return;
+        const innerW=Math.max(1,g.innerRight-g.innerLeft);
+        const innerH=Math.max(1,g.innerBottom-g.innerTop);
+        const guard=Math.max(14,Math.min(32,innerH*0.10));
+        const left=g.innerLeft+guard;
+        const top=g.innerTop+guard;
+        const w=Math.max(1,innerW-guard*2);
+        const h=Math.max(1,innerH-guard*2);
+        const radius=Math.max(0,(g.innerRadius||innerH/2)-guard);
+
+        zone.style.setProperty('left',left+'px','important');
+        zone.style.setProperty('top',top+'px','important');
+        zone.style.setProperty('width',w+'px','important');
+        zone.style.setProperty('height',h+'px','important');
+        zone.style.setProperty('border-radius',radius+'px','important');
+        zone.style.setProperty('overflow','hidden','important');
+      }catch(e){}
+    };
+
+    copyOverlay();
+    positionZone();
+
+    if(!original.__safeHudObserved&&window.MutationObserver){
+      const mo=new MutationObserver(()=>copyOverlay());
+      mo.observe(original,{childList:true,subtree:true,characterData:true});
+      original.__safeHudObserved=true;
+    }
+
+    if(!shell.__safeHudObserved&&window.ResizeObserver){
+      const ro=new ResizeObserver(()=>requestAnimationFrame(positionZone));
+      ro.observe(shell);
+      shell.__safeHudObserved=true;
+    }
+
+    setTimeout(()=>{copyOverlay();positionZone();},100);
+    setTimeout(()=>{copyOverlay();positionZone();},500);
+    setTimeout(()=>{copyOverlay();positionZone();},1200);
+  }catch(e){}
+}
+
+frame.addEventListener('load',()=>{
+  sizeFrame();
+  installInfieldHud();
+  setTimeout(()=>{sizeFrame();installInfieldHud();},250);
+  setTimeout(()=>{sizeFrame();installInfieldHud();},1000);
+  try{
+    const doc=frame.contentDocument;
+    if(window.ResizeObserver&&doc){
+      const ro=new ResizeObserver(sizeFrame);
+      ro.observe(doc.documentElement);
+      if(doc.body)ro.observe(doc.body);
+    }
+  }catch(e){}
+});
+
+window.addEventListener('resize',()=>{
+  sizeFrame();
+  installInfieldHud();
+});
 </script>
 </body>
 </html>
