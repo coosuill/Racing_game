@@ -13,7 +13,7 @@ html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overf
 </style>
 </head>
 <body>
-<iframe id="game" src="game.html?v=20260808-0940-manualhud" title="O'Sullivan Clan Racing"></iframe>
+<iframe id="game" src="game.html?v=20260808-0948-widernames" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
 
@@ -57,7 +57,7 @@ function installRacingFix(){
         #trackInfo .track-info-section{padding:4px 5px!important;}
         #trackInfo .track-info-section h3{font-size:8px!important;margin-bottom:2px!important;}
         #trackInfo .track-live-list,#trackInfo .track-score-list,#trackInfo .track-result-list{font-size:8px!important;gap:1px!important;}
-        #trackInfo .track-live-row{grid-template-columns:17px minmax(55px,1fr) auto auto auto!important;gap:2px!important;}
+        #trackInfo .track-live-row{grid-template-columns:17px minmax(72px,1fr) auto auto auto!important;gap:2px!important;}
         #trackInfo .track-live-row .ability,#trackInfo .track-live-row .race-state,#trackInfo .track-live-row .gap-cell{font-size:7px!important;}
         #latestChangeNote{
           display:inline-block!important;margin-left:7px!important;font-size:9px!important;
@@ -66,7 +66,7 @@ function installRacingFix(){
         }
         @media(max-width:600px){
           #trackInfo{padding:4px 5px!important;}
-          #trackInfo .track-live-row{grid-template-columns:15px minmax(42px,1fr) auto!important;gap:2px!important;}
+          #trackInfo .track-live-row{grid-template-columns:15px minmax(58px,1fr) auto!important;gap:2px!important;}
           #trackInfo .track-live-row .ability,#trackInfo .track-live-row .status-cell{display:none!important;}
           #latestChangeNote{font-size:8px!important;white-space:normal!important;}
         }
@@ -82,7 +82,7 @@ function installRacingFix(){
         note.id='latestChangeNote';
         heading.appendChild(note);
       }
-      note.textContent='Latest: positions manually centred + narrowed · single Race panel removed';
+      note.textContent='Latest: positions widened for full names · single Race panel removed';
     }
 
     const shell=doc.getElementById('trackShell');
@@ -113,9 +113,8 @@ function installRacingFix(){
             const w=currentShell.clientWidth||1;
             const h=currentShell.clientHeight||1;
 
-            // Manual shell-relative placement: deliberately much smaller than before.
-            // No track geometry is used here.
-            const boxW=Math.max(150,Math.min(500,w*0.42));
+            // Manual shell-relative placement. Slightly wider so full names remain visible.
+            const boxW=Math.max(165,Math.min(560,w*0.48));
             const boxH=Math.max(105,Math.min(250,h*0.42));
 
             currentInfo.style.setProperty('left','50%','important');
