@@ -13,7 +13,7 @@ html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overf
 </style>
 </head>
 <body>
-<iframe id="game" src="game.html?v=20260808-0950-tallnames" title="O'Sullivan Clan Racing"></iframe>
+<iframe id="game" src="game.html?v=20260808-1312-seasoncolumns" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
 
@@ -54,7 +54,7 @@ function installRacingFix(){
         }
         #trackInfo .track-info-title{font-size:10px!important;margin-bottom:3px!important;}
         #trackInfo .track-info-grid{gap:4px!important;}
-        #trackInfo .track-info-section{padding:4px 5px!important;}
+        #trackInfo .track-info-section{padding:4px 5px!important;min-width:0!important;}
         #trackInfo .track-info-section h3{font-size:8px!important;margin-bottom:2px!important;}
         #trackInfo .track-live-list,#trackInfo .track-score-list,#trackInfo .track-result-list{font-size:8px!important;gap:1px!important;}
         #trackInfo .track-live-row{grid-template-columns:17px minmax(55px,1fr) auto auto auto!important;gap:2px!important;}
@@ -82,7 +82,7 @@ function installRacingFix(){
         note.id='latestChangeNote';
         heading.appendChild(note);
       }
-      note.textContent='Latest: positions lengthened for full list · single Race panel removed';
+      note.textContent='Latest: Season tables side-by-side · positions full-height';
     }
 
     const shell=doc.getElementById('trackShell');
@@ -112,9 +112,15 @@ function installRacingFix(){
 
             const w=currentShell.clientWidth||1;
             const h=currentShell.clientHeight||1;
+            const grid=currentInfo.querySelector('.track-info-grid');
+            const sectionTitles=Array.from(currentInfo.querySelectorAll('.track-info-section h3')).map(el=>el.textContent.trim().toLowerCase());
+            const isSeasonView=sectionTitles.some(t=>t.indexOf('season')===0);
 
-            // Manual shell-relative placement. Width restored; height increased for the full top-down list.
-            const boxW=Math.max(150,Math.min(500,w*0.42));
+            // Normal race layout remains unchanged. Season gets a little extra width only
+            // so Live Positions and Season Standings can stay adjacent at all screen sizes.
+            const boxW=isSeasonView
+              ? Math.max(190,Math.min(560,w*0.48))
+              : Math.max(150,Math.min(500,w*0.42));
             const boxH=Math.max(150,Math.min(320,h*0.55));
 
             currentInfo.style.setProperty('left','50%','important');
@@ -124,6 +130,14 @@ function installRacingFix(){
             currentInfo.style.setProperty('max-height',boxH+'px','important');
             currentInfo.style.setProperty('transform','translate(-50%,-50%)','important');
             currentInfo.style.setProperty('overflow','hidden','important');
+
+            if(grid){
+              if(isSeasonView){
+                grid.style.setProperty('grid-template-columns','minmax(0,1fr) minmax(0,1fr)','important');
+              }else{
+                grid.style.removeProperty('grid-template-columns');
+              }
+            }
           }
 
           const title=doc.getElementById('metaTitle');
