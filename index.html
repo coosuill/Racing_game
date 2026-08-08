@@ -13,7 +13,7 @@ html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overf
 </style>
 </head>
 <body>
-<iframe id="game" src="game.html?v=20260808-0929-infieldclip" title="O'Sullivan Clan Racing"></iframe>
+<iframe id="game" src="game.html?v=20260808-0938-liveinfield" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
 
@@ -25,16 +25,16 @@ function sizeFrame(){
   }catch(e){frame.style.height='100vh';}
 }
 
-function installInfieldHud(){
+function installRacingFix(){
   try{
     const win=frame.contentWindow;
     const doc=frame.contentDocument;
-    if(!doc||!win)return;
+    if(!win||!doc)return;
 
-    let style=doc.getElementById('outer-infield-hud-fix');
+    let style=doc.getElementById('outer-live-infield-fix');
     if(!style){
       style=doc.createElement('style');
-      style.id='outer-infield-hud-fix';
+      style.id='outer-live-infield-fix';
       style.textContent=`
         .banner{display:none!important;}
         .lap-counter{
@@ -43,28 +43,26 @@ function installInfieldHud(){
           background:rgba(0,0,0,.62)!important;color:#fff!important;
           font-size:13px!important;font-weight:bold!important;pointer-events:none!important;
         }
-        #trackInfo{display:none!important;}
-        #safeInfieldHudZone{
-          position:absolute!important;overflow:hidden!important;pointer-events:none!important;z-index:5!important;
-        }
-        #safeTrackInfo{
-          position:absolute!important;left:50%!important;top:50%!important;
-          transform:translate(-50%,-50%)!important;
-          width:72%!important;max-width:620px!important;max-height:68%!important;
-          margin:0!important;overflow:hidden!important;box-sizing:border-box!important;
+        #trackInfo{
+          position:absolute!important;
+          z-index:5!important;
+          box-sizing:border-box!important;
+          margin:0!important;
+          overflow:hidden!important;
+          pointer-events:none!important;
         }
         #latestChangeNote{
           display:inline-block!important;margin-left:7px!important;font-size:9px!important;
           line-height:1.1!important;font-weight:normal!important;letter-spacing:0!important;
-          color:var(--muted)!important;opacity:.72!important;vertical-align:middle!important;white-space:nowrap!important;
+          color:var(--muted)!important;opacity:.70!important;vertical-align:middle!important;white-space:nowrap!important;
         }
         @media(max-width:760px){
-          #safeTrackInfo{width:78%!important;max-height:72%!important;padding:5px!important;}
-          #safeTrackInfo .track-info-grid{grid-template-columns:1fr!important;gap:3px!important;}
-          #safeTrackInfo .track-info-section{padding:3px 4px!important;}
-          #safeTrackInfo .track-live-list,#safeTrackInfo .track-score-list,#safeTrackInfo .track-result-list{font-size:8px!important;}
-          #safeTrackInfo .track-live-row{grid-template-columns:17px minmax(38px,1fr) auto auto auto!important;gap:2px!important;}
-          #safeTrackInfo .track-live-row .ability,#safeTrackInfo .track-live-row .race-state,#safeTrackInfo .track-live-row .gap-cell{font-size:7px!important;}
+          #trackInfo{padding:5px!important;}
+          #trackInfo .track-info-grid{grid-template-columns:1fr!important;gap:3px!important;}
+          #trackInfo .track-info-section{padding:3px 4px!important;}
+          #trackInfo .track-live-list,#trackInfo .track-score-list,#trackInfo .track-result-list{font-size:8px!important;}
+          #trackInfo .track-live-row{grid-template-columns:17px minmax(38px,1fr) auto auto auto!important;gap:2px!important;}
+          #trackInfo .track-live-row .ability,#trackInfo .track-live-row .race-state,#trackInfo .track-live-row .gap-cell{font-size:7px!important;}
           #latestChangeNote{font-size:8px!important;white-space:normal!important;}
         }
       `;
@@ -79,81 +77,77 @@ function installInfieldHud(){
         note.id='latestChangeNote';
         heading.appendChild(note);
       }
-      note.textContent='Latest: HUD clipped inside true infield · lap top-left';
+      note.textContent='Latest: live positions restored + locked infield · single Race panel removed';
     }
 
     const shell=doc.getElementById('trackShell');
-    const original=doc.getElementById('trackInfo');
-    if(!shell||!original||typeof win.geometry!=='function')return;
+    const info=doc.getElementById('trackInfo');
+    if(!shell||!info||typeof win.geometry!=='function')return;
 
-    let zone=doc.getElementById('safeInfieldHudZone');
-    if(!zone){
-      zone=doc.createElement('div');
-      zone.id='safeInfieldHudZone';
-      shell.appendChild(zone);
+    // Remove the abandoned copied HUD from the previous attempt, if present.
+    const staleZone=doc.getElementById('safeInfieldHudZone');
+    if(staleZone)staleZone.remove();
+
+    // Keep the real live positions element directly in the track shell.
+    if(info.parentNode!==shell){
+      const commentary=doc.getElementById('commentary');
+      shell.insertBefore(info,commentary||null);
     }
 
-    let safe=doc.getElementById('safeTrackInfo');
-    if(!safe){
-      safe=doc.createElement('div');
-      safe.id='safeTrackInfo';
-      safe.className='track-info';
-      zone.appendChild(safe);
+    function hideSimpleRacePanel(){
+      const title=doc.getElementById('metaTitle');
+      if(!title)return;
+      const section=title.closest('section.panel');
+      if(!section)return;
+      section.style.display=title.textContent.trim()==='Race'?'none':'';
     }
 
-    const copyOverlay=()=>{
-      safe.innerHTML=original.innerHTML;
-      safe.style.display=original.innerHTML.trim()?'block':'none';
-    };
+    if(!win.__liveInfieldLockStarted){
+      win.__liveInfieldLockStarted=true;
+      const lock=()=>{
+        try{
+          const currentInfo=doc.getElementById('trackInfo');
+          const currentShell=doc.getElementById('trackShell');
+          if(!currentInfo||!currentShell||typeof win.geometry!=='function')return;
 
-    const positionZone=()=>{
-      try{
-        const g=win.geometry();
-        if(!g)return;
-        const innerW=Math.max(1,g.innerRight-g.innerLeft);
-        const innerH=Math.max(1,g.innerBottom-g.innerTop);
-        const guard=Math.max(14,Math.min(32,innerH*0.10));
-        const left=g.innerLeft+guard;
-        const top=g.innerTop+guard;
-        const w=Math.max(1,innerW-guard*2);
-        const h=Math.max(1,innerH-guard*2);
-        const radius=Math.max(0,(g.innerRadius||innerH/2)-guard);
+          if(currentInfo.parentNode!==currentShell){
+            const commentary=doc.getElementById('commentary');
+            currentShell.insertBefore(currentInfo,commentary||null);
+          }
 
-        zone.style.setProperty('left',left+'px','important');
-        zone.style.setProperty('top',top+'px','important');
-        zone.style.setProperty('width',w+'px','important');
-        zone.style.setProperty('height',h+'px','important');
-        zone.style.setProperty('border-radius',radius+'px','important');
-        zone.style.setProperty('overflow','hidden','important');
-      }catch(e){}
-    };
+          const g=win.geometry();
+          const innerW=Math.max(1,g.innerRight-g.innerLeft);
+          const innerH=Math.max(1,g.innerBottom-g.innerTop);
 
-    copyOverlay();
-    positionZone();
+          // This centred rectangle is deliberately smaller than the green inner pill.
+          // Its full rectangular bounds stay inside the infield on wide and narrow screens.
+          const boxW=innerW*0.62;
+          const boxH=innerH*0.68;
 
-    if(!original.__safeHudObserved&&window.MutationObserver){
-      const mo=new MutationObserver(()=>copyOverlay());
-      mo.observe(original,{childList:true,subtree:true,characterData:true});
-      original.__safeHudObserved=true;
+          currentInfo.style.setProperty('left',g.cx+'px','important');
+          currentInfo.style.setProperty('top',g.cy+'px','important');
+          currentInfo.style.setProperty('width',boxW+'px','important');
+          currentInfo.style.setProperty('max-width','none','important');
+          currentInfo.style.setProperty('max-height',boxH+'px','important');
+          currentInfo.style.setProperty('transform','translate(-50%,-50%)','important');
+          currentInfo.style.setProperty('overflow','hidden','important');
+
+          hideSimpleRacePanel();
+        }catch(e){}
+        win.requestAnimationFrame(lock);
+      };
+      win.requestAnimationFrame(lock);
     }
 
-    if(!shell.__safeHudObserved&&window.ResizeObserver){
-      const ro=new ResizeObserver(()=>requestAnimationFrame(positionZone));
-      ro.observe(shell);
-      shell.__safeHudObserved=true;
-    }
-
-    setTimeout(()=>{copyOverlay();positionZone();},100);
-    setTimeout(()=>{copyOverlay();positionZone();},500);
-    setTimeout(()=>{copyOverlay();positionZone();},1200);
+    hideSimpleRacePanel();
   }catch(e){}
 }
 
 frame.addEventListener('load',()=>{
   sizeFrame();
-  installInfieldHud();
-  setTimeout(()=>{sizeFrame();installInfieldHud();},250);
-  setTimeout(()=>{sizeFrame();installInfieldHud();},1000);
+  installRacingFix();
+  setTimeout(()=>{sizeFrame();installRacingFix();},200);
+  setTimeout(()=>{sizeFrame();installRacingFix();},800);
   try{
     const doc=frame.contentDocument;
     if(window.ResizeObserver&&doc){
@@ -166,7 +160,7 @@ frame.addEventListener('load',()=>{
 
 window.addEventListener('resize',()=>{
   sizeFrame();
-  installInfieldHud();
+  installRacingFix();
 });
 </script>
 </body>
