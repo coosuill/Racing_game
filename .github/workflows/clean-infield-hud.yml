@@ -1,0 +1,274 @@
+name: Clean racing infield HUD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/clean-infield-hud.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply clean HUD fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          game = Path('game.html')
+          text = game.read_text(encoding='utf-8')
+
+          # Remove the previous direct infield patch so only one positioning system remains.
+          text, removed = re.subn(
+              r'\n?<!-- CHATGPT_CENTRAL_INFIELD_START -->.*?<!-- CHATGPT_CENTRAL_INFIELD_END -->\n?',
+              '\n',
+              text,
+              flags=re.S
+          )
+          if removed != 1:
+              raise SystemExit(f'Expected to remove 1 old infield patch, removed {removed}')
+
+          # Remove this patch too if a rerun ever occurs.
+          text = re.sub(
+              r'\n?<!-- CHATGPT_INFIELD_HUD_V2_START -->.*?<!-- CHATGPT_INFIELD_HUD_V2_END -->\n?',
+              '\n',
+              text,
+              flags=re.S
+          )
+
+          patch = r'''
+<!-- CHATGPT_INFIELD_HUD_V2_START -->
+<style id="chatgpt-infield-hud-v2-style">
+  .banner{display:none!important;}
+  .lap-counter{
+    left:10px!important;
+    right:auto!important;
+    top:10px!important;
+    z-index:7!important;
+    padding:7px 10px!important;
+    border-radius:999px!important;
+    background:rgba(0,0,0,.62)!important;
+    color:#fff!important;
+    font-size:13px!important;
+    font-weight:bold!important;
+    pointer-events:none!important;
+  }
+  #infieldHudZone{
+    position:absolute!important;
+    overflow:hidden!important;
+    pointer-events:none!important;
+    z-index:5!important;
+  }
+  #infieldHudZone #trackInfo{
+    position:absolute!important;
+    left:0!important;
+    top:50%!important;
+    transform:translateY(-50%)!important;
+    width:100%!important;
+    max-width:none!important;
+    max-height:100%!important;
+    margin:0!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  .latest-change-note{
+    display:inline-block!important;
+    margin-left:8px!important;
+    font-size:9px!important;
+    line-height:1.1!important;
+    font-weight:normal!important;
+    letter-spacing:0!important;
+    color:var(--muted)!important;
+    opacity:.68!important;
+    vertical-align:middle!important;
+    white-space:nowrap!important;
+  }
+  @media(max-width:760px){
+    #infieldHudZone #trackInfo{padding:5px!important;}
+    #infieldHudZone #trackInfo .track-info-grid{grid-template-columns:1fr!important;gap:3px!important;}
+    #infieldHudZone #trackInfo .track-info-section{padding:3px 4px!important;}
+    #infieldHudZone #trackInfo .track-live-list,
+    #infieldHudZone #trackInfo .track-score-list,
+    #infieldHudZone #trackInfo .track-result-list{font-size:8px!important;}
+    #infieldHudZone #trackInfo .track-live-row{
+      grid-template-columns:17px minmax(38px,1fr) auto auto auto!important;
+      gap:2px!important;
+    }
+    #infieldHudZone #trackInfo .track-live-row .ability,
+    #infieldHudZone #trackInfo .track-live-row .race-state,
+    #infieldHudZone #trackInfo .track-live-row .gap-cell{font-size:7px!important;}
+    .latest-change-note{font-size:8px!important;white-space:normal!important;}
+  }
+</style>
+<script id="chatgpt-infield-hud-v2-script">
+(function(){
+  var latestText = 'Latest: live box fixed in infield · single Race panel removed';
+
+  function ensureLatestNote(){
+    var h = document.querySelector('h1');
+    if(!h) return;
+    var note = document.getElementById('latestChangeNote');
+    if(!note){
+      note = document.createElement('span');
+      note.id = 'latestChangeNote';
+      note.className = 'latest-change-note';
+      h.appendChild(note);
+    }
+    note.textContent = latestText;
+  }
+
+  function toggleSingleRacePanel(){
+    var title = document.getElementById('metaTitle');
+    if(!title) return;
+    var section = title.closest('section.panel');
+    if(!section) return;
+    section.style.display = title.textContent.trim() === 'Race' ? 'none' : '';
+  }
+
+  function ensureInfieldZone(){
+    var shell = document.getElementById('trackShell');
+    var info = document.getElementById('trackInfo');
+    if(!shell || !info) return null;
+
+    var zone = document.getElementById('infieldHudZone');
+    if(!zone){
+      zone = document.createElement('div');
+      zone.id = 'infieldHudZone';
+      shell.appendChild(zone);
+    }
+
+    // Move the ACTUAL live standings element into the safe zone.
+    // The game's existing render code keeps updating this same element.
+    if(info.parentNode !== zone){
+      zone.appendChild(info);
+    }
+    return zone;
+  }
+
+  function positionInfieldHud(){
+    try{
+      if(typeof geometry !== 'function') return;
+      var zone = ensureInfieldZone();
+      var info = document.getElementById('trackInfo');
+      if(!zone || !info) return;
+
+      var g = geometry();
+      if(!g) return;
+      var innerW = Math.max(1, g.innerRight - g.innerLeft);
+      var innerH = Math.max(1, g.innerBottom - g.innerTop);
+
+      // A centred rectangle 66% x 68% of the inner pill is mathematically
+      // contained inside the green infield when the track is wider than tall.
+      // Because the zone itself is inside the infield and clips overflow,
+      // the visible standings cannot cover the racing surface.
+      var zoneW = innerW * 0.66;
+      var zoneH = innerH * 0.68;
+      var left = g.cx - zoneW / 2;
+      var top = g.cy - zoneH / 2;
+
+      zone.style.setProperty('left', left + 'px', 'important');
+      zone.style.setProperty('top', top + 'px', 'important');
+      zone.style.setProperty('width', zoneW + 'px', 'important');
+      zone.style.setProperty('height', zoneH + 'px', 'important');
+      zone.style.setProperty('overflow', 'hidden', 'important');
+
+      info.style.setProperty('left', '0', 'important');
+      info.style.setProperty('top', '50%', 'important');
+      info.style.setProperty('width', '100%', 'important');
+      info.style.setProperty('max-width', 'none', 'important');
+      info.style.setProperty('max-height', '100%', 'important');
+      info.style.setProperty('transform', 'translateY(-50%)', 'important');
+    }catch(e){}
+  }
+
+  function apply(){
+    ensureLatestNote();
+    toggleSingleRacePanel();
+    positionInfieldHud();
+  }
+
+  window.addEventListener('resize', function(){ requestAnimationFrame(apply); });
+
+  var shell = document.getElementById('trackShell');
+  if(shell && window.ResizeObserver){
+    var ro = new ResizeObserver(function(){ requestAnimationFrame(positionInfieldHud); });
+    ro.observe(shell);
+  }
+
+  var metaTitle = document.getElementById('metaTitle');
+  if(metaTitle && window.MutationObserver){
+    var mo = new MutationObserver(toggleSingleRacePanel);
+    mo.observe(metaTitle,{childList:true,subtree:true,characterData:true});
+  }
+
+  apply();
+  setTimeout(apply,100);
+  setTimeout(apply,400);
+  setTimeout(apply,1000);
+})();
+</script>
+<!-- CHATGPT_INFIELD_HUD_V2_END -->
+'''
+
+          if '</body>' not in text:
+              raise SystemExit('Could not find </body> in game.html')
+          text = text.replace('</body>', patch + '\n</body>', 1)
+          game.write_text(text, encoding='utf-8')
+
+          # Keep the outer page simple so it cannot fight with game.html positioning.
+          Path('index.html').write_text('''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>O'Sullivan Clan Racing</title>
+<style>html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overflow-x:hidden}#game{display:block;width:100%;border:0;min-height:100vh}</style>
+</head>
+<body>
+<iframe id="game" src="game.html?v=20260808-0933-hudv2" title="O'Sullivan Clan Racing"></iframe>
+<script>
+const frame=document.getElementById('game');
+function sizeFrame(){try{const doc=frame.contentDocument;if(!doc)return;frame.style.height=Math.max(doc.documentElement.scrollHeight,doc.body?doc.body.scrollHeight:0,window.innerHeight)+'px';}catch(e){frame.style.height='100vh';}}
+frame.addEventListener('load',()=>{sizeFrame();setTimeout(sizeFrame,250);setTimeout(sizeFrame,1000);try{const doc=frame.contentDocument;if(window.ResizeObserver&&doc){const ro=new ResizeObserver(sizeFrame);ro.observe(doc.documentElement);if(doc.body)ro.observe(doc.body);}}catch(e){}});
+window.addEventListener('resize',sizeFrame);
+</script>
+</body>
+</html>
+''', encoding='utf-8')
+          PY
+
+      - name: Check JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          for name in ['game.html','index.html']:
+              text = Path(name).read_text(encoding='utf-8')
+              scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', text, re.S | re.I)
+              for i, script in enumerate(scripts):
+                  Path(f'/tmp/{name.replace(".","_")}_{i}.js').write_text(script, encoding='utf-8')
+          PY
+          for f in /tmp/game_html_*.js /tmp/index_html_*.js; do
+            [ -e "$f" ] && node --check "$f"
+          done
+
+      - name: Commit fix and remove helper
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add game.html index.html
+          git commit -m 'Fix live positions in true infield and remove single race panel'
+          git rm .github/workflows/clean-infield-hud.yml
+          git commit -m 'Remove clean infield HUD helper'
+          git push origin main
