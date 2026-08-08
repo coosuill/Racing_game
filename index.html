@@ -26,6 +26,18 @@ function tuneGame(){
       style.id='chatgpt-racing-layout-tweak';
       style.textContent=`
         .banner{display:none!important;}
+        #latestChangeNote{
+          display:inline-block!important;
+          margin-left:7px!important;
+          font-size:9px!important;
+          line-height:1.1!important;
+          font-weight:normal!important;
+          letter-spacing:0!important;
+          color:var(--muted)!important;
+          opacity:.72!important;
+          vertical-align:middle!important;
+          white-space:nowrap!important;
+        }
         .lap-counter{
           left:10px!important;
           right:auto!important;
@@ -47,6 +59,7 @@ function tuneGame(){
           overflow:hidden!important;
         }
         @media(max-width:760px){
+          #latestChangeNote{font-size:8px!important;white-space:normal!important;}
           .track-info-grid{grid-template-columns:1fr!important;gap:4px!important;}
           .track-info{padding:6px!important;}
           .track-info-section{padding:4px 5px!important;}
@@ -56,6 +69,17 @@ function tuneGame(){
         }
       `;
       doc.head.appendChild(style);
+    }
+
+    const heading=doc.querySelector('h1');
+    if(heading){
+      let note=doc.getElementById('latestChangeNote');
+      if(!note){
+        note=doc.createElement('span');
+        note.id='latestChangeNote';
+        heading.appendChild(note);
+      }
+      note.textContent='Latest: standings deeper infield · lap counter top-left';
     }
 
     const pinTrackOverlay=()=>{
