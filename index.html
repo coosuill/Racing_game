@@ -13,7 +13,7 @@ html,body{margin:0;padding:0;width:100%;min-height:100%;background:#07120c;overf
 </style>
 </head>
 <body>
-<iframe id="game" src="game.html?v=20260808-0938-liveinfield" title="O'Sullivan Clan Racing"></iframe>
+<iframe id="game" src="game.html?v=20260808-0940-manualhud" title="O'Sullivan Clan Racing"></iframe>
 <script>
 const frame=document.getElementById('game');
 
@@ -31,10 +31,10 @@ function installRacingFix(){
     const doc=frame.contentDocument;
     if(!win||!doc)return;
 
-    let style=doc.getElementById('outer-live-infield-fix');
+    let style=doc.getElementById('manual-racing-hud-fix');
     if(!style){
       style=doc.createElement('style');
-      style.id='outer-live-infield-fix';
+      style.id='manual-racing-hud-fix';
       style.textContent=`
         .banner{display:none!important;}
         .lap-counter{
@@ -50,19 +50,24 @@ function installRacingFix(){
           margin:0!important;
           overflow:hidden!important;
           pointer-events:none!important;
+          padding:6px 8px!important;
         }
+        #trackInfo .track-info-title{font-size:10px!important;margin-bottom:3px!important;}
+        #trackInfo .track-info-grid{gap:4px!important;}
+        #trackInfo .track-info-section{padding:4px 5px!important;}
+        #trackInfo .track-info-section h3{font-size:8px!important;margin-bottom:2px!important;}
+        #trackInfo .track-live-list,#trackInfo .track-score-list,#trackInfo .track-result-list{font-size:8px!important;gap:1px!important;}
+        #trackInfo .track-live-row{grid-template-columns:17px minmax(55px,1fr) auto auto auto!important;gap:2px!important;}
+        #trackInfo .track-live-row .ability,#trackInfo .track-live-row .race-state,#trackInfo .track-live-row .gap-cell{font-size:7px!important;}
         #latestChangeNote{
           display:inline-block!important;margin-left:7px!important;font-size:9px!important;
           line-height:1.1!important;font-weight:normal!important;letter-spacing:0!important;
           color:var(--muted)!important;opacity:.70!important;vertical-align:middle!important;white-space:nowrap!important;
         }
-        @media(max-width:760px){
-          #trackInfo{padding:5px!important;}
-          #trackInfo .track-info-grid{grid-template-columns:1fr!important;gap:3px!important;}
-          #trackInfo .track-info-section{padding:3px 4px!important;}
-          #trackInfo .track-live-list,#trackInfo .track-score-list,#trackInfo .track-result-list{font-size:8px!important;}
-          #trackInfo .track-live-row{grid-template-columns:17px minmax(38px,1fr) auto auto auto!important;gap:2px!important;}
-          #trackInfo .track-live-row .ability,#trackInfo .track-live-row .race-state,#trackInfo .track-live-row .gap-cell{font-size:7px!important;}
+        @media(max-width:600px){
+          #trackInfo{padding:4px 5px!important;}
+          #trackInfo .track-live-row{grid-template-columns:15px minmax(42px,1fr) auto!important;gap:2px!important;}
+          #trackInfo .track-live-row .ability,#trackInfo .track-live-row .status-cell{display:none!important;}
           #latestChangeNote{font-size:8px!important;white-space:normal!important;}
         }
       `;
@@ -77,69 +82,68 @@ function installRacingFix(){
         note.id='latestChangeNote';
         heading.appendChild(note);
       }
-      note.textContent='Latest: live positions restored + locked infield · single Race panel removed';
+      note.textContent='Latest: positions manually centred + narrowed · single Race panel removed';
     }
 
     const shell=doc.getElementById('trackShell');
     const info=doc.getElementById('trackInfo');
-    if(!shell||!info||typeof win.geometry!=='function')return;
+    if(!shell||!info)return;
 
-    // Remove the abandoned copied HUD from the previous attempt, if present.
     const staleZone=doc.getElementById('safeInfieldHudZone');
     if(staleZone)staleZone.remove();
 
-    // Keep the real live positions element directly in the track shell.
     if(info.parentNode!==shell){
       const commentary=doc.getElementById('commentary');
       shell.insertBefore(info,commentary||null);
     }
 
-    function hideSimpleRacePanel(){
-      const title=doc.getElementById('metaTitle');
-      if(!title)return;
-      const section=title.closest('section.panel');
-      if(!section)return;
-      section.style.display=title.textContent.trim()==='Race'?'none':'';
-    }
+    if(!win.__manualHudLockStarted){
+      win.__manualHudLockStarted=true;
 
-    if(!win.__liveInfieldLockStarted){
-      win.__liveInfieldLockStarted=true;
-      const lock=()=>{
+      const manualLock=()=>{
         try{
           const currentInfo=doc.getElementById('trackInfo');
           const currentShell=doc.getElementById('trackShell');
-          if(!currentInfo||!currentShell||typeof win.geometry!=='function')return;
+          if(currentInfo&&currentShell){
+            if(currentInfo.parentNode!==currentShell){
+              const commentary=doc.getElementById('commentary');
+              currentShell.insertBefore(currentInfo,commentary||null);
+            }
 
-          if(currentInfo.parentNode!==currentShell){
-            const commentary=doc.getElementById('commentary');
-            currentShell.insertBefore(currentInfo,commentary||null);
+            const w=currentShell.clientWidth||1;
+            const h=currentShell.clientHeight||1;
+
+            // Manual shell-relative placement: deliberately much smaller than before.
+            // No track geometry is used here.
+            const boxW=Math.max(150,Math.min(500,w*0.42));
+            const boxH=Math.max(105,Math.min(250,h*0.42));
+
+            currentInfo.style.setProperty('left','50%','important');
+            currentInfo.style.setProperty('top','50%','important');
+            currentInfo.style.setProperty('width',boxW+'px','important');
+            currentInfo.style.setProperty('max-width',boxW+'px','important');
+            currentInfo.style.setProperty('max-height',boxH+'px','important');
+            currentInfo.style.setProperty('transform','translate(-50%,-50%)','important');
+            currentInfo.style.setProperty('overflow','hidden','important');
           }
 
-          const g=win.geometry();
-          const innerW=Math.max(1,g.innerRight-g.innerLeft);
-          const innerH=Math.max(1,g.innerBottom-g.innerTop);
-
-          // This centred rectangle is deliberately smaller than the green inner pill.
-          // Its full rectangular bounds stay inside the infield on wide and narrow screens.
-          const boxW=innerW*0.62;
-          const boxH=innerH*0.68;
-
-          currentInfo.style.setProperty('left',g.cx+'px','important');
-          currentInfo.style.setProperty('top',g.cy+'px','important');
-          currentInfo.style.setProperty('width',boxW+'px','important');
-          currentInfo.style.setProperty('max-width','none','important');
-          currentInfo.style.setProperty('max-height',boxH+'px','important');
-          currentInfo.style.setProperty('transform','translate(-50%,-50%)','important');
-          currentInfo.style.setProperty('overflow','hidden','important');
-
-          hideSimpleRacePanel();
+          const title=doc.getElementById('metaTitle');
+          const panel=doc.getElementById('metaPanel');
+          if(title){
+            const section=title.closest('section.panel');
+            if(section){
+              const titleText=title.textContent.trim().toLowerCase();
+              const panelText=panel?panel.textContent.trim().toLowerCase():'';
+              const isSingleRacePanel=titleText==='race' && (panelText.includes('single race') || panelText.includes('single'));
+              section.style.setProperty('display',isSingleRacePanel?'none':'','important');
+            }
+          }
         }catch(e){}
-        win.requestAnimationFrame(lock);
+        win.requestAnimationFrame(manualLock);
       };
-      win.requestAnimationFrame(lock);
-    }
 
-    hideSimpleRacePanel();
+      win.requestAnimationFrame(manualLock);
+    }
   }catch(e){}
 }
 
