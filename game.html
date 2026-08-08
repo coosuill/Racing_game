@@ -2082,5 +2082,48 @@ loadImages(MEMBERS, function(){
 
 })();
 </script>
+<!-- CHATGPT_CENTRAL_INFIELD_START -->
+<style id="chatgpt-central-infield-style">
+.banner{display:none!important;}
+.lap-counter{left:10px!important;right:auto!important;top:10px!important;z-index:6!important;padding:7px 10px!important;border-radius:999px!important;background:rgba(0,0,0,.62)!important;color:#fff!important;font-size:13px!important;font-weight:bold!important;pointer-events:none!important}
+#trackInfo{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;max-width:none!important;margin:0!important;overflow:hidden!important}
+.latest-change-note{display:inline-block!important;margin-left:8px!important;font-size:9px!important;line-height:1.1!important;font-weight:normal!important;letter-spacing:0!important;opacity:.58!important;vertical-align:middle!important;white-space:nowrap!important}
+@media(max-width:760px){#trackInfo{padding:5px!important}#trackInfo .track-info-grid{grid-template-columns:1fr!important;gap:3px!important}#trackInfo .track-info-section{padding:3px 4px!important}#trackInfo .track-live-list,#trackInfo .track-score-list,#trackInfo .track-result-list{font-size:8px!important}#trackInfo .track-live-row{grid-template-columns:17px minmax(38px,1fr) auto auto auto!important;gap:2px!important}#trackInfo .track-live-row .ability,#trackInfo .track-live-row .race-state,#trackInfo .track-live-row .gap-cell{font-size:7px!important}}
+</style>
+<script id="chatgpt-central-infield-script">
+(function(){
+  var latestText='Latest: positions central infield · lap top-left';
+  function ensureLatestNote(){
+    var h=document.querySelector('h1'); if(!h)return;
+    var note=document.getElementById('latestChangeNote');
+    if(!note){note=document.createElement('span');note.id='latestChangeNote';note.className='latest-change-note';h.appendChild(note);}
+    note.textContent=latestText;
+  }
+  function pinToCentralInfield(){
+    try{
+      var info=document.getElementById('trackInfo');
+      if(!info||typeof geometry!=='function')return;
+      var g=geometry(); if(!g)return;
+      var innerWidth=Math.max(1,g.innerRight-g.innerLeft);
+      var innerHeight=Math.max(1,g.innerBottom-g.innerTop);
+      var safeWidth=Math.max(1,Math.min(620,innerWidth*0.54));
+      var safeHeight=Math.max(1,innerHeight*0.50);
+      info.style.setProperty('left',g.cx+'px','important');
+      info.style.setProperty('top',g.cy+'px','important');
+      info.style.setProperty('width',safeWidth+'px','important');
+      info.style.setProperty('max-height',safeHeight+'px','important');
+      info.style.setProperty('transform','translate(-50%,-50%)','important');
+      info.style.setProperty('overflow','hidden','important');
+    }catch(e){}
+  }
+  function apply(){ensureLatestNote();pinToCentralInfield();}
+  window.addEventListener('resize',apply);
+  if(window.ResizeObserver){var shell=document.getElementById('trackShell');if(shell){var ro=new ResizeObserver(function(){requestAnimationFrame(pinToCentralInfield)});ro.observe(shell);}}
+  var info=document.getElementById('trackInfo');
+  if(info&&window.MutationObserver){var mo=new MutationObserver(function(){requestAnimationFrame(pinToCentralInfield)});mo.observe(info,{childList:true,subtree:true,characterData:true});}
+  apply();setTimeout(apply,100);setTimeout(apply,500);setInterval(pinToCentralInfield,500);
+})();
+</script>
+<!-- CHATGPT_CENTRAL_INFIELD_END -->
 </body>
 </html>
